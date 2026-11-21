@@ -243,7 +243,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             contents: [{ parts: [{ text: input }] }],
-                            systemInstruction: { parts: [{ text: "Merve diye hitap et. Tıbbi teşhis koyma." }] }
+                            systemInstruction: { parts: [{ text: "Merve diye hitap et. Tıbbi teşhis koyma.Ama sorulan randevu ve reçe sorularına cevap ver" }] }
                         })
                     });
                     
@@ -280,11 +280,7 @@
                         </div>
                     )}
 
-                    <div className="bg-blue-900 text-white text-[9px] sm:text-[10px] py-2 px-4 text-center font-bold tracking-wider uppercase shrink-0 safe-area-pt">
-                        Teknofest 2026 - Şanlıurfa | İnsanlık Yararına Teknoloji Adayı
-                    </div>
-
-                    {step === 'login' && (
+                   {step === 'login' && (
                         <div className={`flex-1 flex flex-col items-center justify-center p-8 animate-in fade-in duration-500 ${settings.darkMode ? 'bg-slate-900' : 'bg-white'}`}>
                             <div className="mb-10 p-6 bg-blue-600 rounded-[2.5rem] text-white shadow-2xl rotate-3">
                                 <LucideIcon name="shield-check" size={56} />
@@ -352,8 +348,8 @@
                                             }} className="space-y-3">
                                                 <select name="dr" className={`w-full p-4 rounded-2xl font-bold text-sm outline-none border-0 ${settings.darkMode ? 'bg-slate-700 text-white' : 'bg-slate-50 text-slate-900'}`} required>
                                                     <option value="">Doktor Seçin</option>
-                                                    <option value="Dr. Ahmet Yılmaz">Dr. Ahmet Yılmaz (Kardiyoloji)</option>
-                                                    <option value="Dr. Elif Aksoy">Dr. Elif Aksoy (Dahiliye)</option>
+                                                    <option value="Dr. Ahmet Yılmaz">Dr. Simay Yılmaz (Kardiyoloji)</option>
+                                                    <option value="Dr. Elif Aksoy">Dr. Kuzey Aksoy (Dahiliye)</option>
                                                 </select>
                                                 <div className="flex flex-col sm:flex-row gap-3">
                                                     <input name="tm" type="time" className={`w-full sm:flex-1 p-4 rounded-2xl font-black text-center border-0 outline-none ${settings.darkMode ? 'bg-slate-700 text-white' : 'bg-slate-50 text-slate-900'}`} required />
