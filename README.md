@@ -1,1 +1,1 @@
-# VitaCare-Ak-ll--Sa-l-k-Asistan-
+# VitaCare-Akilli-Saglik-Asistani
