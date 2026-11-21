@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>VitaCare Akıllı Sağlık Asistanı</title>
+    
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2966/2966327.png" type="image/png">
+    
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.min.css" rel="stylesheet">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        
+        :root {
+            --sat: env(safe-area-inset-top);
+            --sab: env(safe-area-inset-bottom);
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            -webkit-tap-highlight-color: transparent; 
+            margin: 0; 
+            padding: 0;
+            background-color: #f8fafc;
+            overscroll-behavior: none;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+        }
+
+        body.dark-mode {
+            background-color: #0f172a;
+        }
+
+        .scroll-container {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .scroll-container::-webkit-scrollbar { display: none; }
+        
+        .safe-area-pt { padding-top: max(1rem, var(--sat)); }
+        .safe-area-pb { padding-bottom: max(1rem, var(--sab)); }
+        .safe-area-mb { margin-bottom: var(--sab); }
+
+        @keyframes bounce-custom {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-bounce-custom { animation: bounce-custom 1s infinite; }
+
+        button, select, input {
+            min-height: 48px;
+            touch-action: manipulation;
+            font-size: 16px !important;
+        }
+
+        .chat-bubble {
+            max-width: 85%;
+            word-wrap: break-word;
+        }
+
+        .app-container {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .toast-notification {
+            position: fixed;
+            top: max(20px, var(--sat));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            animation: slideDown 0.3s ease-out;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        @keyframes slideDown {
+            from { transform: translate(-50%, -100%); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+
+        .list-item-enter {
+            animation: slideInRight 0.3s ease-out;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body id="body-el">
+    <div id="root" class="app-container"></div>
+
+    <script type="text/babel">
+        const { useState, useCallback, useEffect, useRef } = React;
+
+        const LucideIcon = ({ name, size = 24, className = "" }) => {
+            useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            }, [name]);
+            return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
+        };
+
+        const App = () => {
+            const [step, setStep] = useState('login');
+            const [activeTab, setActiveTab] = useState('home');
+            const [appointments, setAppointments] = useState([]);
+            const [stats, setStats] = useState({ height: '185', weight: '82' });
+            const [incomingCall, setIncomingCall] = useState(null);
+            const [retryCount, setRetryCount] = useState({});
+            const [toast, setToast] = useState(null);
+            const [recognition, setRecognition] = useState(null);
+            
+            const [settings, setSettings] = useState({
+                notifications: false,
+                voiceAssistant: false,
+                darkMode: false
+            });
+
+            const [chatMessages, setChatMessages] = useState([
+                { role: 'assistant', text: 'Merhaba! Ben VitaCare Yapay Zeka Asistanı. Size bugün nasıl yardımcı olabilirim?' }
+            ]);
+            const [isAiTyping, setIsAiTyping] = useState(false);
+            const chatEndRef = useRef(null);
+
+            const showToast = (message) => {
+                setToast(message);
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            const speak = useCallback((text) => {
+                if (settings.voiceAssistant && 'speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'tr-TR';
+                    window.speechSynthesis.speak(utterance);
+                }
+            }, [settings.voiceAssistant]);
+
+            useEffect(() => {
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    const rec = new SpeechRecognition();
+                    rec.lang = 'tr-TR';
+                    rec.continuous = true;
+                    rec.interimResults = false;
+                    
+                    rec.onresult = (event) => {
+                        const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
+                        if (incomingCall) {
+                            if (transcript.includes("aç") || transcript.includes("cevapla") || transcript.includes("onayla")) {
+                                handleAccept();
+                            } else if (transcript.includes("kapat") || transcript.includes("reddet") || transcript.includes("hayır")) {
+                                handleReject();
+                            }
+                        }
+                    };
+                    setRecognition(rec);
+                }
+            }, [incomingCall]);
+
+            useEffect(() => {
+                if (settings.voiceAssistant && recognition) {
+                    try { recognition.start(); } catch(e) {}
+                } else if (recognition) {
+                    try { recognition.stop(); } catch(e) {}
+                }
+            }, [settings.voiceAssistant, recognition]);
+
+            useEffect(() => {
+                const body = document.getElementById('body-el');
+                if (settings.darkMode) {
+                    body.classList.add('dark-mode');
+                } else {
+                    body.classList.remove('dark-mode');
+                }
+            }, [settings.darkMode]);
+
+            useEffect(() => {
+                chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [chatMessages]);
+
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    const now = new Date();
+                    const currentTime = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                    
+                    appointments.forEach(appt => {
+                        const count = retryCount[appt.id] || 0;
+                        if (appt.time === currentTime && !appt.confirmed && count < 3 && !incomingCall) {
+                            if (settings.notifications) {
+                                setIncomingCall(appt);
+                                speak(`Sayın kullanıcımız, ${appt.doctor} randevu vaktiniz geldi. Cevaplamak için 'aç' diyebilir veya butona basabilirsiniz.`);
+                            }
+                        }
+                    });
+                }, 10000);
+                return () => clearInterval(interval);
+            }, [appointments, incomingCall, retryCount, speak, settings.notifications]);
+
+            const handleAccept = () => {
+                setAppointments(prev => prev.map(a => a.id === incomingCall.id ? {...a, confirmed: true} : a));
+                setIncomingCall(null);
+                speak("Görüşme başlatılıyor.");
+            };
+
+            const handleReject = () => {
+                setRetryCount(prev => ({ ...prev, [incomingCall.id]: (prev[incomingCall.id] || 0) + 1 }));
+                setIncomingCall(null);
+                speak("Arama sonlandırıldı.");
+            };
+
+            const handleAiChat = async (e) => {
+                e.preventDefault();
+                const input = e.target.aiInput.value;
+                if (!input.trim()) return;
+
+                const newUserMessage = { role: 'user', text: input };
+                setChatMessages(prev => [...prev, newUserMessage]);
+                e.target.reset();
+                
+                setIsAiTyping(true);
+
+                const apiKey = ""; 
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: input }] }],
+                            systemInstruction: { parts: [{ text: "Merve diye hitap et. Tıbbi teşhis koyma." }] }
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Size sağlık verileriniz veya randevularınız konusunda yardımcı olabilirim, Merve.";
+                    setChatMessages(prev => [...prev, { role: 'assistant', text: aiText }]);
+                } catch (error) {
+                    setChatMessages(prev => [...prev, { role: 'assistant', text: "Bağlantı hatası oluştu, Merve." }]);
+                } finally {
+                    setIsAiTyping(false);
+                }
+            };
+
+            const toggleSetting = (key) => {
+                const newValue = !settings[key];
+                setSettings(prev => ({ ...prev, [key]: newValue }));
+                
+                if (key === 'notifications') {
+                    showToast(newValue ? "Bildirimler başarıyla açıldı." : "Bildirimler başarıyla kapatıldı.");
+                }
+                
+                if (key === 'voiceAssistant' && newValue) {
+                    setTimeout(() => speak("Sesli asistan sistemi aktif edildi. Gelen aramaları sesinizle yanıtlayabilirsiniz."), 100);
+                }
+            };
+
+            return (
+                <div className={`flex-1 flex flex-col overflow-hidden w-full max-w-5xl mx-auto ${settings.darkMode ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`}>
+                    
+                    {toast && (
+                        <div className="toast-notification bg-blue-600 text-white px-6 py-3 rounded-full shadow-2xl font-bold text-sm flex items-center justify-center gap-2">
+                            <LucideIcon name="bell-ring" size={16} />
+                            <span>{toast}</span>
+                        </div>
+                    )}
+
+                    <div className="bg-blue-900 text-white text-[9px] sm:text-[10px] py-2 px-4 text-center font-bold tracking-wider uppercase shrink-0 safe-area-pt">
+                        Teknofest 2026 - Şanlıurfa | İnsanlık Yararına Teknoloji Adayı
+                    </div>
+
+                    {step === 'login' && (
+                        <div className={`flex-1 flex flex-col items-center justify-center p-8 animate-in fade-in duration-500 ${settings.darkMode ? 'bg-slate-900' : 'bg-white'}`}>
+                            <div className="mb-10 p-6 bg-blue-600 rounded-[2.5rem] text-white shadow-2xl rotate-3">
+                                <LucideIcon name="shield-check" size={56} />
+                            </div>
+                            <div className="text-center mb-12">
+                                <h1 className={`text-4xl font-black uppercase tracking-tighter ${settings.darkMode ? 'text-white' : 'text-blue-900'}`}>VitaCare</h1>
+                                <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.4em] mt-2">Dijital Sağlık Asistanı</p>
+                            </div>
+                            <button 
+                                onClick={() => { setStep('scan'); setTimeout(() => setStep('home'), 1500); }}
+                                className="w-full max-w-xs py-5 bg-blue-600 text-white rounded-2xl text-xl font-bold shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
+                            >
+                                <LucideIcon name="camera" /> Giriş Yap
+                            </button>
+                        </div>
+                    )}
+
+                    {step === 'scan' && (
+                        <div className={`flex-1 flex flex-col items-center justify-center p-6 ${settings.darkMode ? 'bg-slate-900' : 'bg-white'}`}>
+                            <div className="relative w-40 h-40 border-4 border-slate-100 rounded-full flex items-center justify-center">
+                                <LucideIcon name="user" size={60} className="text-slate-200" />
+                                <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+                            </div>
+                            <h2 className="mt-8 font-black text-slate-400 uppercase tracking-widest text-sm animate-pulse">Biyometrik Doğrulama</h2>
+                        </div>
+                    )}
+
+                    {step === 'home' && (
+                        <div className="flex-1 flex flex-col h-full overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
+                            <header className={`h-16 border-b px-6 flex items-center justify-between shrink-0 ${settings.darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                                <div className="flex items-center gap-2">
+                                    <LucideIcon name="activity" className="text-blue-600" size={20} />
+                                    <span className="font-black text-xs uppercase tracking-tight">
+                                        {activeTab === 'home' ? 'VitaCare Panel' : activeTab === 'ai' ? 'AI Asistan' : 'Ayarlar'}
+                                    </span>
+                                </div>
+                                <button onClick={() => setStep('login')} className="p-2 text-red-500 active:scale-90"><LucideIcon name="log-out" size={20}/></button>
+                            </header>
+
+                            <div className="flex-1 overflow-hidden relative">
+                                {activeTab === 'home' && (
+                                    <main className="h-full scroll-container p-4 space-y-6 pb-32">
+                                        <section className={`p-5 rounded-3xl border shadow-sm ${settings.darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 text-center">Sağlık Verileri</h3>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className={`${settings.darkMode ? 'bg-slate-700' : 'bg-slate-50'} p-3 sm:p-4 rounded-2xl`}>
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Boy (cm)</label>
+                                                    <input type="number" value={stats.height} onChange={(e)=>setStats({...stats, height: e.target.value})} className="bg-transparent font-black w-full outline-none text-lg text-inherit" />
+                                                </div>
+                                                <div className={`${settings.darkMode ? 'bg-slate-700' : 'bg-slate-50'} p-3 sm:p-4 rounded-2xl`}>
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Kilo (kg)</label>
+                                                    <input type="number" value={stats.weight} onChange={(e)=>setStats({...stats, weight: e.target.value})} className="bg-transparent font-black w-full outline-none text-lg text-inherit" />
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        <section className={`p-5 rounded-3xl border shadow-sm ${settings.darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 text-center">Hızlı Randevu</h3>
+                                            <form onSubmit={(e) => {
+                                                e.preventDefault();
+                                                const fd = new FormData(e.target);
+                                                setAppointments([{ id: Date.now(), doctor: fd.get('dr'), time: fd.get('tm'), confirmed: false }, ...appointments]);
+                                                e.target.reset();
+                                            }} className="space-y-3">
+                                                <select name="dr" className={`w-full p-4 rounded-2xl font-bold text-sm outline-none border-0 ${settings.darkMode ? 'bg-slate-700 text-white' : 'bg-slate-50 text-slate-900'}`} required>
+                                                    <option value="">Doktor Seçin</option>
+                                                    <option value="Dr. Ahmet Yılmaz">Dr. Ahmet Yılmaz (Kardiyoloji)</option>
+                                                    <option value="Dr. Elif Aksoy">Dr. Elif Aksoy (Dahiliye)</option>
+                                                </select>
+                                                <div className="flex flex-col sm:flex-row gap-3">
+                                                    <input name="tm" type="time" className={`w-full sm:flex-1 p-4 rounded-2xl font-black text-center border-0 outline-none ${settings.darkMode ? 'bg-slate-700 text-white' : 'bg-slate-50 text-slate-900'}`} required />
+                                                    <button type="submit" className="w-full sm:flex-[2] bg-blue-600 text-white font-black py-4 rounded-2xl uppercase text-[11px] shadow-lg active:scale-95 transition-all">Ekle</button>
+                                                </div>
+                                            </form>
+                                        </section>
+
+                                        <section className="space-y-3 pb-4">
+                                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Aktif Randevular</h3>
+                                            {appointments.length === 0 ? (
+                                                <div className="te
