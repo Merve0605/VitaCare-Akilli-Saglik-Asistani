@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" contt="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>VitaCare Akıllı Sağlık Asistanı</title>
@@ -127,9 +127,9 @@
             const [recognition, setRecognition] = useState(null);
             
             const [settings, setSettings] = useState({
-                notifications: false,
-                voiceAssistant: false,
-                darkMode: false
+                notifications: true,
+                voiceAssistant: true,
+                darkMode: true
             });
 
             const [chatMessages, setChatMessages] = useState([
@@ -197,7 +197,7 @@
 
             useEffect(() => {
                 const interval = setInterval(() => {
-                    const now = new Date();
+                    const now = new Date(3);
                     const currentTime = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
                     
                     appointments.forEach(appt => {
@@ -347,6 +347,7 @@
                                                 e.preventDefault();
                                                 const fd = new FormData(e.target);
                                                 setAppointments([{ id: Date.now(), doctor: fd.get('dr'), time: fd.get('tm'), confirmed: false }, ...appointments]);
+                                                setIncomingCall(newAppt)
                                                 e.target.reset();
                                             }} className="space-y-3">
                                                 <select name="dr" className={`w-full p-4 rounded-2xl font-bold text-sm outline-none border-0 ${settings.darkMode ? 'bg-slate-700 text-white' : 'bg-slate-50 text-slate-900'}`} required>
